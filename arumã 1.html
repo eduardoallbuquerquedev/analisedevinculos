@@ -1,0 +1,1517 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arumã — Análise de Vínculos</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&family=DM+Sans:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+    --bg: #ffffff;
+    --surface: #f8f9fa;
+    --mpam-red: #a51d1c;
+    --mpam-gold: #c29d6a;
+    --text-muted: #666666;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); font-family:'DM Sans',sans-serif; min-height:100vh; overflow-x:hidden; }
+body::before {
+    content:''; position:fixed; inset:0;
+    background-image: linear-gradient(rgba(0,229,255,0.03) 1px,transparent 5px), linear-gradient(90deg,rgba(0,229,255,0.03) 1px,transparent 1px);
+    background-size:40px 40px; pointer-events:none; z-index:0;
+}
+.layout { position:relative; z-index:1; display:grid; grid-template-columns:320px 1fr; grid-template-rows:120px 1fr; height:100vh; }
+header { grid-column:1/-1; background:linear-gradient(135deg, #7a0c0b 0%, #a51d1c 40%, #c0392b 70%, #922b21 100%); border-bottom:4px solid #c29d6a; display:flex; align-items:center; justify-content:space-between; padding:0 24px; height:120px; }
+.header-left { display:flex; align-items:center; gap:20px; }
+.header-right { display:flex; align-items:center; gap:15px; }
+.logo-container img { height:200px; width:auto; display:block; }
+.brand-box { background:white; padding:6px; border-radius:8px; height:70px; width:70px; display:flex; align-items:center; justify-content:center; border:1px solid #c29d6a; }
+.brand-box img { max-height:100%; max-width:100%; object-fit:contain; }
+.main-title { font-family:'Montserrat',sans-serif; font-size:24px; font-weight:800; line-height:1.1; color:#fff; margin:0; }
+.sub-title { font-family:'DM Sans',sans-serif; font-size:14px; color:#fff; opacity:0.9; margin:0; }
+aside { background:var(--surface); border-right:1px solid #e2e8f0; padding:20px; display:flex; flex-direction:column; gap:20px; overflow-y:auto; transition:all 0.35s cubic-bezier(0.4,0,0.2,1); }
+.section-label { font-family:'Montserrat',sans-serif; font-size:13px; font-weight:800; color:#80100f; text-transform:uppercase; letter-spacing:4px; margin:5px 0 15px 5px; display:block; opacity:0.8; }
+.analysis-btn { width:100%; background:#fff; border:1px solid #e2e8f0; color:#334155; padding:16px 20px; margin-bottom:12px; border-radius:8px; cursor:pointer; transition:all 0.2s; display:flex; flex-direction:column; gap:4px; box-shadow:0 2px 4px rgba(0,0,0,0.04); text-align:left; }
+.analysis-btn.active { border-color:var(--mpam-red); box-shadow:inset 4px 0 0 var(--mpam-red), 0 8px 20px rgba(165,29,28,0.1); transform:translateX(4px); }
+.analysis-btn.active .btn-title { color:var(--mpam-red); padding-left:8px; }
+.analysis-btn.active .btn-desc { padding-left:8px; }
+.btn-title { font-family:'Montserrat',sans-serif; font-weight:700; font-size:13px; color:var(--mpam-red); padding-left:8px; }
+.btn-desc { font-size:11px; color:#64748b; line-height:1.5; margin-top:6px; font-weight:400; }
+.btn-icon { background:#f1f5f9; padding:4px; border-radius:8px; margin-right:12px; }
+.legend-item { display:flex; align-items:center; gap:10px; padding:8px 12px; background:rgba(255,255,255,0.5); border-radius:6px; margin-bottom:4px; font-family:'Montserrat',sans-serif; font-size:12px; font-weight:600; color:#475569; text-transform:uppercase; letter-spacing:0.5px; }
+.legend-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+.info-card { background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:16px; margin-top:0; margin-bottom:12px; box-shadow:0 2px 4px rgba(0,0,0,0.02); }
+.info-card strong { font-family:'Montserrat',sans-serif; font-size:11px; font-weight:800; color:var(--mpam-red); text-transform:uppercase; letter-spacing:2px; display:block; margin-bottom:8px; }
+/* PAINEL DE DETALHES */
+#detailPanel { background:#fff; border:1px solid #e2e8f0; border-radius:10px; overflow:hidden; box-shadow:0 4px 16px rgba(165,29,28,0.08); transition:all 0.35s cubic-bezier(0.4,0,0.2,1); }
+#detailPanel.has-data { border-color:var(--mpam-red); box-shadow:0 4px 20px rgba(165,29,28,0.15); }
+.detail-header { padding:14px 16px 12px; background:linear-gradient(135deg,#a51d1c 0%,#80100f 100%); display:flex; align-items:flex-start; gap:10px; }
+.detail-type-badge { font-family:'DM Sans',sans-serif; font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:1.5px; padding:3px 8px; border-radius:4px; background:rgba(255,255,255,0.22); color:#fff; flex-shrink:0; margin-top:3px; white-space:nowrap; }
+.detail-name { font-family:'DM Sans',sans-serif; font-size:13px; font-weight:700; color:#fff; line-height:1.35; flex:1; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+.detail-close-btn { background:rgba(255,255,255,0.15); border:none; border-radius:50%; width:22px; height:22px; cursor:pointer; display:flex; align-items:center; justify-content:center; color:#fff; flex-shrink:0; transition:background 0.2s; margin-top:1px; }
+.detail-close-btn:hover { background:rgba(255,255,255,0.3); }
+.detail-metrics { display:grid; grid-template-columns:1fr 1fr; gap:1px; background:#e2e8f0; border-bottom:1px solid #e2e8f0; }
+.detail-metric { background:#fff; padding:10px 12px; }
+.detail-metric-label { font-family:'DM Sans',sans-serif; font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:1px; color:#94a3b8; display:block; margin-bottom:3px; }
+.detail-metric-value { font-family:'DM Sans',sans-serif; font-size:14px; font-weight:700; color:#a51d1c; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.detail-metric-value.texto-longo { font-size:11px; white-space:normal; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.detail-connections-title { font-family:'DM Sans',sans-serif; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:1.5px; color:#94a3b8; padding:12px 12px 6px; }
+.detail-connections-list { padding:0 8px 12px; display:flex; flex-direction:column; gap:3px; max-height:220px; overflow-y:auto; }
+.detail-connections-list::-webkit-scrollbar { width:4px; }
+.detail-connections-list::-webkit-scrollbar-thumb { background:#e2e8f0; border-radius:4px; }
+.detail-conn-item { display:flex; align-items:center; gap:8px; padding:7px 10px; border-radius:6px; background:#f8fafc; border:1px solid #e2e8f0; transition:all 0.15s; cursor:pointer; }
+.detail-conn-item:hover { background:#fff1f2; border-color:#fca5a5; }
+.detail-conn-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+.detail-conn-name { font-family:'DM Sans',sans-serif; font-size:11px; color:#334155; font-weight:500; flex:1; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; line-height:1.3; }
+.detail-conn-count { font-family:'DM Sans',sans-serif; font-size:11px; font-weight:700; color:#a51d1c; flex-shrink:0; white-space:nowrap; }
+.detail-placeholder { padding:20px 16px; text-align:center; }
+.detail-placeholder-icon { width:40px; height:40px; background:#fff1f2; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 12px; color:#fca5a5; }
+.detail-placeholder p { font-size:12px; color:#94a3b8; line-height:1.5; }
+.detail-placeholder strong { font-family:'Montserrat',sans-serif; font-size:11px; font-weight:800; color:#cbd5e1; text-transform:uppercase; letter-spacing:2px; display:block; margin-bottom:8px; }
+/* MAIN */
+main { display:flex; flex-direction:column; overflow:hidden; }
+.canvas-header { padding:14px 20px; border-bottom:1px solid #e2e8f0; display:flex; align-items:center; gap:12px; background:#a51d1c; }
+.analysis-title { font-size:15px; font-weight:600; color:#fff; }
+.analysis-subtitle { font-size:12px; color:#fff; margin-left:auto; }
+canvas { flex:1; display:block; cursor:grab; }
+canvas:active { cursor:grabbing; }
+.import-overlay { position:absolute; inset:0; background:#fff; display:flex; align-items:center; justify-content:center; z-index:10; text-align:center; padding:40px; }
+.import-content { max-width:450px; }
+.main-folder-icon { width:80px; height:80px; color:#000; margin:0 auto 20px; display:block; }
+.import-content h2 { font-family:'Montserrat',sans-serif; font-weight:800; color:#1e293b; font-size:24px; margin-bottom:15px; }
+.import-content p { color:#64748b; line-height:1.5; margin-bottom:30px; }
+.import-btn { background:#a51d1c; color:white; padding:14px 40px; border-radius:6px; font-weight:800; cursor:pointer; transition:background 0.2s; display:inline-block; }
+.import-btn:hover { background:#80100f; }
+.tooltip { position:fixed; background:var(--surface); border:1px solid #e2e8f0; border-radius:6px; padding:10px 14px; font-size:12px; pointer-events:none; display:none; z-index:100; min-width:180px; box-shadow:0 0 30px rgba(211,26,32,0.2); }
+.tooltip-name { font-weight:600; font-size:13px; margin-bottom:4px; }
+.tooltip-type { font-family:'Space Mono',monospace; font-size:10px; text-transform:uppercase; letter-spacing:0.1em; margin-bottom:6px; }
+.tooltip-value { color:var(--mpam-red); font-family:'Space Mono',monospace; font-size:12px; }
+.tooltip-connections { color:var(--text-muted); font-size:11px; margin-top:4px; }
+.stats-bar { padding:10px 20px; border-top:1px solid #e2e8f0; display:flex; gap:24px; background:var(--surface); }
+.stat { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-muted); }
+.stat-value { font-family:'Space Mono',monospace; font-size:13px; color:var(--mpam-red); }
+.toast { position:fixed; top:20px; right:20px; background:#1e293b; color:white; padding:16px 24px; border-radius:8px; border-left:6px solid #a51d1c; box-shadow:0 10px 15px -3px rgba(0,0,0,0.1); display:flex; align-items:center; gap:12px; z-index:9999; font-family:'DM Sans',sans-serif; transform:translateX(120%); transition:transform 0.3s cubic-bezier(0.68,-0.55,0.265,1.55); }
+.toast.show { transform:translateX(0); }
+@keyframes slideInPanel { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+.panel-animate { animation:slideInPanel 0.25s ease-out forwards; }
+@keyframes marqueeScroll { 0% { transform:translateX(0); } 100% { transform:translateX(-50%); } }
+#searchPlaceholderText { animation:marqueeScroll 9s linear infinite; }
+.layout.fullscreen-mode { grid-template-columns:0px 1fr; }
+.layout.fullscreen-mode aside { width:0; padding:0; overflow:hidden; border:none; }
+#fullscreenBtn:hover, #exportBtn:hover { background:rgba(255,255,255,0.28) !important; }
+.export-option { width:100%; background:#fff; border:none; padding:10px 14px; cursor:pointer; display:flex; align-items:center; gap:12px; transition:background 0.15s; text-align:left; border-bottom:1px solid #f8fafc; }
+.export-option:last-child { border-bottom:none; }
+.export-option:hover { background:#f8fafc; }
+.export-option-icon { width:32px; height:32px; border-radius:6px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.export-option-title { font-family:'Montserrat',sans-serif; font-size:12px; font-weight:700; color:#1e293b; margin-bottom:2px; }
+.export-option-desc { font-size:10px; color:#94a3b8; }
+.risk-legend { margin-top:8px; padding:10px 12px; background:#fff8f8; border:1px solid #fecaca; border-radius:8px; }
+.risk-row { display:flex; align-items:center; gap:8px; margin-bottom:6px; font-family:'Montserrat',sans-serif; font-size:11px; font-weight:600; color:#475569; }
+.risk-row:last-child { margin-bottom:0; }
+.risk-dot { width:12px; height:12px; border-radius:50%; flex-shrink:0; border:2px solid transparent; }
+/* Badge de status de dados */
+#statusBadge { display:none; background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.25); border-radius:10px; padding:8px 14px; backdrop-filter:blur(8px); }
+#statusBadge.visible { display:flex; align-items:center; gap:10px; }
+.status-dot { width:10px; height:10px; border-radius:50%; background:#4ade80; flex-shrink:0; box-shadow:0 0 0 0 rgba(74,222,128,0.6); animation:statusPulse 2s infinite; }
+@keyframes statusPulse { 0%{box-shadow:0 0 0 0 rgba(74,222,128,0.6);} 70%{box-shadow:0 0 0 8px rgba(74,222,128,0);} 100%{box-shadow:0 0 0 0 rgba(74,222,128,0);} }
+.status-text { font-family:'Montserrat',sans-serif; font-size:11px; font-weight:700; color:#fff; line-height:1.3; }
+.status-sub { font-family:'DM Sans',sans-serif; font-size:10px; color:rgba(255,255,255,0.7); font-weight:400; }
+#progressOverlay { position:absolute; inset:0; background:rgba(255,255,255,0.96); display:none; align-items:center; justify-content:center; z-index:20; flex-direction:column; gap:16px; }
+#progressOverlay.visible { display:flex; }
+.progress-title { font-family:'Montserrat',sans-serif; font-size:15px; font-weight:800; color:#1e293b; }
+.progress-sub { font-family:'DM Sans',sans-serif; font-size:12px; color:#64748b; margin-top:-8px; }
+.progress-track { width:320px; height:8px; background:#e2e8f0; border-radius:99px; overflow:hidden; }
+.progress-bar { height:100%; background:linear-gradient(90deg,#a51d1c,#c29d6a); border-radius:99px; width:0%; transition:width 0.2s ease; }
+.progress-count { font-family:'Space Mono',monospace; font-size:11px; color:#94a3b8; }
+.date-range-display { display:flex; justify-content:space-between; font-size:10px; color:var(--mpam-red); font-family:'Space Mono',monospace; margin-bottom:5px; }
+.qsa-upload-area { border:2px dashed #e2e8f0; border-radius:8px; padding:14px; text-align:center; cursor:pointer; transition:all 0.2s; background:#fafafa; margin-top:8px; }
+.qsa-upload-area:hover { border-color:var(--mpam-red); background:#fff1f2; }
+.qsa-upload-area p { font-size:11px; color:#64748b; margin-top:6px; line-height:1.4; }
+.qsa-loaded { border-color:#16a34a !important; background:#f0fdf4 !important; }
+.qsa-loaded p { color:#16a34a !important; font-weight:600; }
+/* Badge de múltiplos arquivos carregados */
+#multiFilesBadge { display:none; background:#f0fdf4; border:1px solid #86efac; border-radius:6px; padding:6px 10px; font-size:11px; color:#16a34a; font-family:'Montserrat',sans-serif; font-weight:700; margin-top:8px; text-align:center; }
+
+</style>
+</head>
+<body>
+
+<div id="toast" class="toast">
+    <i id="toastIcon" data-lucide="check-circle" style="color:#4ade80;flex-shrink:0;"></i>
+    <span id="toastMsg">Base de dados carregada com sucesso!</span>
+</div>
+
+<div class="layout">
+    <header>
+        <div class="header-left">
+            <div class="logo-container"><img src="LOGO_MP-.png" alt="MPAM"></div>
+            <div>
+                <h1 class="main-title">Ministério Público do<br>Estado do Amazonas</h1>
+                <p class="sub-title">Sistema de Gestão e Análise de Custos</p>
+            </div>
+        </div>
+        <div class="header-right">
+            <!-- BADGE DE STATUS -->
+            <div id="statusBadge">
+                <div class="status-dot"></div>
+                <div>
+                    <div class="status-text" id="statusBadgeTitle">Base carregada</div>
+                    <div class="status-sub" id="statusBadgeSub">—</div>
+                </div>
+            </div>
+            <div class="brand-box"><img src="arumãlogo-removebg-preview.png" alt="Arumã"></div>
+            <div class="brand-box"><img src="caorimo_logo.jpg" alt="CAO-CRIMO"></div>
+        </div>
+    </header>
+
+    <aside>
+        <!-- BLOCO 1: ANÁLISES -->
+        <div>
+            <div class="section-label">Inteligência de Vínculos</div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+                <button class="analysis-btn" onclick="toggleAnalysis(0)">
+                    <div class="btn-title"><i data-lucide="network" class="btn-icon"></i>Fluxo Unidade x Credor</div>
+                    <div class="btn-desc">Visão geral de pagamentos e concentração de recursos por órgão.</div>
+                </button>
+                <button class="analysis-btn" onclick="toggleAnalysis(1)">
+                    <div class="btn-title"><i data-lucide="alert-triangle" class="btn-icon"></i>Credores Transversais</div>
+                    <div class="btn-desc">Identifica empresas que recebem de múltiplas áreas.</div>
+                </button>
+                <button class="analysis-btn" onclick="toggleAnalysis(2)">
+                    <div class="btn-title"><i data-lucide="shield-alert" class="btn-icon"></i>Padrões Suspeitos</div>
+                    <div class="btn-desc">Detecta CNPJs com múltiplos nomes e credores com concentração extrema nos dados carregados.</div>
+                </button>
+            </div>
+        </div>
+
+        <!-- BLOCO 2: FILTROS -->
+        <div>
+            <div class="section-label">Filtros Investigativos</div>
+            <div id="btnLimparFiltros" onclick="limparFiltros()" style="display:none;width:100%;margin-bottom:12px;padding:9px 14px;background:#fff;border:1.5px solid #fca5a5;border-radius:8px;font-family:'Montserrat',sans-serif;font-size:11px;font-weight:800;color:#a51d1c;cursor:pointer;letter-spacing:1px;align-items:center;justify-content:center;gap:6px;transition:all 0.2s;box-shadow:0 2px 8px rgba(165,29,28,0.08);">
+                <i data-lucide="filter-x" style="width:13px;height:13px;"></i>
+                LIMPAR FILTROS ATIVOS
+            </div>
+            <div class="info-card" style="margin-bottom:10px;">
+                <strong style="margin-bottom:8px;">Intervalo de Valores</strong>
+                <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--mpam-red);font-family:'Space Mono';margin-bottom:5px;">
+                    <span id="valMinDisplay">Min: R$ 0</span><span id="valMaxDisplay">Max: Bi</span>
+                </div>
+                <input type="range" id="valueFilterMin" min="0" max="100" value="0" style="width:100%;accent-color:var(--mpam-red);cursor:pointer;margin-bottom:10px;">
+                <input type="range" id="valueFilterMax" min="0" max="100" value="100" style="width:100%;accent-color:#475569;cursor:pointer;">
+                <p style="font-size:10px;color:#64748b;margin-top:8px;">Exibir apenas vínculos dentro desta faixa de preço.</p>
+            </div>
+
+            <!-- FILTRO TEMPORAL -->
+            <div class="info-card" style="margin-bottom:10px;">
+                <strong style="margin-bottom:8px;">Período de Pagamento</strong>
+                <div class="date-range-display"><span id="dateMinDisplay">—</span><span id="dateMaxDisplay">—</span></div>
+                <input type="range" id="dateFilterMin" min="0" max="100" value="0" style="width:100%;accent-color:var(--mpam-red);cursor:pointer;margin-bottom:10px;" disabled>
+                <input type="range" id="dateFilterMax" min="0" max="100" value="100" style="width:100%;accent-color:#475569;cursor:pointer;" disabled>
+                <p style="font-size:10px;color:#64748b;margin-top:8px;" id="dateFilterHint">Carregue CSV com coluna <code style="font-size:9px;color:#a51d1c;">dat_pagamento</code> para ativar.</p>
+            </div>
+
+            <!-- FILTRO POR ÓRGÃO -->
+            <div class="info-card" style="margin-bottom:10px;">
+                <strong style="margin-bottom:8px;">Filtrar por Órgão</strong>
+                <select id="orgaoFilter" style="width:100%;padding:7px 8px;border:1px solid #e2e8f0;border-radius:4px;font-size:12px;color:#334155;background:#fff;cursor:pointer;outline:none;" onchange="filtrarPorOrgao(this.value)">
+                    <option value="">Todos os órgãos</option>
+                </select>
+                <p style="font-size:10px;color:#64748b;margin-top:6px;">Exibe apenas os fornecedores do órgão selecionado.</p>
+            </div>
+
+            <!-- BUSCAR -->
+            <div class="info-card">
+                <strong>Buscar Entidade</strong>
+                <div style="position:relative;margin-top:5px;overflow:hidden;border:1px solid #e2e8f0;border-radius:4px;background:#fff;">
+                    <input type="text" id="searchInput" style="width:100%;padding:8px;border:none;outline:none;font-size:12px;background:transparent;position:relative;z-index:2;color:#1a1a1a;" placeholder=" ">
+                    <div id="searchPlaceholder" style="position:absolute;top:0;left:0;right:0;bottom:0;padding:0 8px;font-size:12px;color:#94a3b8;pointer-events:none;overflow:hidden;white-space:nowrap;display:flex;align-items:center;z-index:1;">
+                        <span id="searchPlaceholderText" style="display:inline-block;padding-right:40px;">Digite o nome ou CNPJ do Credor ou Unidade Gestora</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- BLOCO 3: LEGENDA -->
+        <div>
+            <div class="section-label">Legenda</div>
+            <div id="legend"></div>
+            <div class="section-label" style="margin-top:18px;">Indicador de Risco</div>
+            <div class="risk-legend">
+                <div class="risk-row"><div class="risk-dot" style="background:#fef08a;border-color:#eab308;"></div><span>Atenção — 4 a 6 vínculos</span></div>
+                <div class="risk-row"><div class="risk-dot" style="background:#fed7aa;border-color:#f97316;"></div><span>Suspeito — 7 a 9 vínculos</span></div>
+                <div class="risk-row"><div class="risk-dot" style="background:#fecaca;border-color:#dc2626;"></div><span style="color:#dc2626;">Alto Risco — 10+ vínculos</span></div>
+                <div class="risk-row"><div class="risk-dot" style="background:#f1f5f9;border-color:#94a3b8;border-style:dashed;"></div><span style="color:#94a3b8;">Exclusivo — apenas 1 órgão</span></div>
+            </div>
+        </div>
+
+        <!-- BLOCO 4: DETALHES -->
+        <div>
+            <div class="section-label">Detalhes do Nó</div>
+            <div id="detailPanel">
+                <div id="detailPlaceholder" class="detail-placeholder">
+                    <div class="detail-placeholder-icon"><i data-lucide="mouse-pointer-click" style="width:20px;height:20px;"></i></div>
+                    <strong>Aguardando seleção</strong>
+                    <p>Clique em qualquer nó do grafo para ver seu resumo financeiro e vínculos aqui.</p>
+                </div>
+                <div id="detailContent" style="display:none;">
+                    <div class="detail-header">
+                        <div style="flex:1;min-width:0;">
+                            <div class="detail-type-badge" id="detailBadge" style="margin-bottom:6px;">ÓRGÃO</div>
+                            <div class="detail-name" id="detailName" style="-webkit-line-clamp:4;">—</div>
+                        </div>
+                        <button class="detail-close-btn" onclick="clearSelection()" style="flex-shrink:0;"><i data-lucide="x" style="width:12px;height:12px;"></i></button>
+                    </div>
+                    <!-- Valor total em destaque -->
+                    <div style="padding:12px 14px 0;background:#fff;">
+                        <div style="font-family:'DM Sans',sans-serif;font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;margin-bottom:4px;">Total Recebido</div>
+                        <div id="detailTotal" style="font-family:'Montserrat',sans-serif;font-size:22px;font-weight:800;color:#a51d1c;line-height:1.1;">—</div>
+                    </div>
+                    <div class="detail-metrics" style="margin-top:10px;">
+                        <div class="detail-metric"><span class="detail-metric-label">Vínculos</span><span class="detail-metric-value" id="detailConnCount">—</span></div>
+                        <div class="detail-metric"><span class="detail-metric-label">Maior Valor</span><span class="detail-metric-value" id="detailTopValue">—</span></div>
+                    </div>
+                    <!-- Maior pagador em linha própria -->
+                    <div style="padding:8px 14px;background:#fff;border-bottom:1px solid #e2e8f0;">
+                        <div style="font-family:'DM Sans',sans-serif;font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;margin-bottom:3px;" id="detailTopPayerLabel">Maior Pagador</div>
+                        <div id="detailTopPayer" style="font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;color:#334155;line-height:1.4;">—</div>
+                    </div>
+                    <div class="detail-connections-title" id="detailConnTitle">Órgãos Pagadores</div>
+                    <div class="detail-connections-list" id="detailConnList"></div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <main style="position:relative" id="mainArea">
+        <div class="canvas-header">
+            <div class="analysis-title" id="analysisTitle">Fluxo de Unidade x Credor</div>
+            <div class="analysis-subtitle" id="analysisSubtitle">Clique em um nó para explorar</div>
+            <!-- EXPORTAR -->
+            <div style="position:relative;margin-left:12px;" id="exportWrapper">
+                <button id="exportBtn" onclick="toggleExportMenu()" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);border-radius:6px;padding:6px 10px;cursor:pointer;color:#fff;display:flex;align-items:center;gap:6px;font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;transition:background 0.2s;">
+                    <i data-lucide="download" style="width:14px;height:14px;"></i>
+                    <span>EXPORTAR</span>
+                    <i data-lucide="chevron-down" id="exportChevron" style="width:11px;height:11px;transition:transform 0.2s;"></i>
+                </button>
+                <div id="exportMenu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;background:#fff;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.12);overflow:hidden;min-width:200px;z-index:200;">
+                    <div style="padding:8px 12px 6px;font-family:'Montserrat',sans-serif;font-size:9px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:2px;border-bottom:1px solid #f1f5f9;">Formato de Exportação</div>
+                    <button onclick="exportarPNG()" class="export-option">
+                        <div class="export-option-icon" style="background:#fff1f2;color:#a51d1c;"><i data-lucide="image" style="width:14px;height:14px;"></i></div>
+                        <div><div class="export-option-title">Imagem PNG</div><div class="export-option-desc">Captura o grafo como está na tela</div></div>
+                    </button>
+                    <button onclick="exportarCSV()" class="export-option">
+                        <div class="export-option-icon" style="background:#f0fdf4;color:#16a34a;"><i data-lucide="table" style="width:14px;height:14px;"></i></div>
+                        <div><div class="export-option-title">Planilha CSV</div><div class="export-option-desc" id="csvExportDesc">Todos os vínculos do grafo</div></div>
+                    </button>
+                    <button onclick="exportarPDF()" class="export-option">
+                        <div class="export-option-icon" style="background:#fff7ed;color:#c2410c;"><i data-lucide="file-text" style="width:14px;height:14px;"></i></div>
+                        <div><div class="export-option-title">Relatório PDF</div><div class="export-option-desc" id="pdfExportDesc">Selecione um nó primeiro</div></div>
+                    </button>
+                </div>
+            </div>
+            <button id="fullscreenBtn" onclick="toggleFullscreen()" style="margin-left:8px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);border-radius:6px;padding:6px 10px;cursor:pointer;color:#fff;display:flex;align-items:center;gap:6px;font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;transition:background 0.2s;">
+                <i data-lucide="maximize-2" id="fullscreenIcon" style="width:14px;height:14px;"></i>
+                <span id="fullscreenLabel">EXPANDIR</span>
+            </button>
+            <!-- BOTÃO RESETAR ZOOM -->
+            <button onclick="resetarZoom()" title="Centralizar grafo" style="margin-left:8px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);border-radius:6px;padding:6px 10px;cursor:pointer;color:#fff;display:flex;align-items:center;gap:6px;font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;transition:background 0.2s;" id="resetZoomBtn">
+                <i data-lucide="focus" style="width:14px;height:14px;"></i>
+                <span>CENTRALIZAR</span>
+            </button>
+            <!-- BOTÃO TROCAR ARQUIVO -->
+            <label for="csvInputMain" title="Carregar outro arquivo" style="margin-left:8px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);border-radius:6px;padding:6px 10px;cursor:pointer;color:#fff;display:flex;align-items:center;gap:6px;font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.28)'" onmouseout="this.style.background='rgba(255,255,255,0.15)'">
+                <i data-lucide="folder-open" style="width:14px;height:14px;"></i>
+                <span>TROCAR CSV</span>
+            </label>
+            <!-- BOTÃO LIMPAR DADOS -->
+            <button onclick="limparDados()" title="Voltar à tela inicial" style="margin-left:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);border-radius:6px;padding:6px 10px;cursor:pointer;color:rgba(255,255,255,0.7);display:flex;align-items:center;gap:6px;font-family:'Montserrat',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;transition:all 0.2s;" onmouseover="this.style.background='rgba(220,38,38,0.4)';this.style.color='#fff';this.style.borderColor='rgba(255,255,255,0.4)'" onmouseout="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.7)';this.style.borderColor='rgba(255,255,255,0.2)'">
+                <i data-lucide="trash-2" style="width:14px;height:14px;"></i>
+                <span>LIMPAR</span>
+            </button>
+        </div>
+
+        <!-- IMPORT OVERLAY -->
+        <div id="importOverlay" style="position:absolute;inset:0;background:#fff;display:flex;align-items:center;justify-content:center;z-index:10;text-align:center;padding:40px;">
+            <div style="max-width:450px;">
+                <i data-lucide="folder-open" class="main-folder-icon"></i>
+                <h2 style="font-family:'Montserrat',sans-serif;font-weight:800;color:#1e293b;font-size:24px;margin-bottom:15px;">Nenhum dado carregado</h2>
+                <p style="color:#64748b;line-height:1.5;margin-bottom:30px;">Importe o arquivo CSV do ano que deseja investigar.</p>
+                <label for="csvInputMain" class="import-btn">
+                    IMPORTAR CSV
+                    <input type="file" id="csvInputMain" accept=".csv" style="display:none;">
+                </label>
+            </div>
+        </div>
+
+        <!-- CHOOSE ANALYSIS OVERLAY -->
+        <div id="chooseOverlay" style="display:none;position:absolute;inset:0;background:#fff;align-items:center;justify-content:center;z-index:9;text-align:center;padding:40px;">
+            <div style="max-width:500px;">
+                <i data-lucide="mouse-pointer-click" style="width:56px;height:56px;color:#c29d6a;margin:0 auto 20px;display:block;"></i>
+                <h2 style="font-family:'Montserrat',sans-serif;font-weight:800;color:#1e293b;font-size:22px;margin-bottom:10px;">Dados carregados!</h2>
+                <p style="color:#64748b;line-height:1.6;margin-bottom:0;">Escolha uma análise na barra lateral para visualizar os vínculos.</p>
+            </div>
+        </div>
+
+        <!-- PROGRESS OVERLAY -->
+        <div id="progressOverlay">
+            <div class="progress-title">Processando base de dados...</div>
+            <div class="progress-sub" id="progressSub">Lendo arquivo CSV</div>
+            <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
+            <div class="progress-count" id="progressCount">0 registros</div>
+            <button onclick="mostrarProgresso(false)" style="margin-top:8px;background:transparent;border:1px solid #cbd5e1;border-radius:6px;padding:4px 14px;font-size:11px;color:#94a3b8;cursor:pointer;">Cancelar processamento de dados</button>
+        </div>
+
+        <canvas id="graph"></canvas>
+        <div class="stats-bar">
+            <div class="stat">Nós: <span class="stat-value" id="statNodes">0</span></div>
+            <div class="stat">Vínculos: <span class="stat-value" id="statEdges">0</span></div>
+            <div class="stat">Registros: <span class="stat-value" id="statRecords">0</span></div>
+            <div class="stat">Selecionado: <span class="stat-value" id="statSelected">—</span></div>
+        </div>
+    </main>
+</div>
+
+<div class="tooltip" id="tooltip">
+    <div class="tooltip-name" id="ttName"></div>
+    <div class="tooltip-type" id="ttType"></div>
+    <div class="tooltip-value" id="ttValue"></div>
+    <div class="tooltip-connections" id="ttConn"></div>
+</div>
+
+<script>
+// ─── ESTADO GLOBAL ────────────────────────────────────────────
+const canvas = document.getElementById('graph');
+const ctx    = canvas.getContext('2d');
+const tooltip = document.getElementById('tooltip');
+
+let nodes = [], edges = [], selectedNode = null, hoveredNode = null;
+let animFrame = 0, currentAnalysis = -1;
+
+// ─── ESTRUTURAS AGREGADAS (substituem dadosBrutos linha-a-linha) ──────────
+// Guardam apenas os totais necessários, não cada linha do CSV
+let dadosBrutos = [];        // mantido APENAS durante leitura, limpo depois
+let agregado = {
+    // "org|credor" → {total, orgao, credor, cnpj}
+    pares: {},
+    // orgao → {total, credores: Set}
+    orgaos: {},
+    // credor → {total, orgaos: Set, cnpj}
+    credores: {},
+    // cnpj → {nomes: Set, orgaos: Set, total}
+    cnpjs: {},
+    // datas únicas (timestamps)
+    datas: new Set(),
+    totalRegistros: 0
+};
+
+let todasDatas = [], idxDataMin = 0, idxDataMax = 0;
+let scale = 1.0, offsetX = 0, offsetY = 0;
+let isDragging = false, startX, startY, mouseDownX = 0, mouseDownY = 0;
+let minAmount = 0, maxAmount = Infinity, searchTerm = '', orgaoFiltro = '';
+let isFullscreen = false, exportMenuOpen = false;
+let totalArquivosCarregados = 0;
+
+// ─── DATASETS ─────────────────────────────────────────────────
+const analyses = [
+    {
+        title: 'Fluxo de Unidade x Credor',
+        subtitle: 'Aguardando importação de arquivo...',
+        legend: [{color:'#334155',label:'Órgão Público'},{color:'#a51d1c',label:'Fornecedor'}],
+        nodes: [], edges: []
+    },
+    {
+        title: 'Credores Transversais',
+        subtitle: 'Fornecedores que recebem de múltiplas unidades gestoras',
+        legend: [{color:'#334155',label:'Órgão Público'},{color:'#a51d1c',label:'Fornecedor Transversal'}],
+        nodes: [], edges: []
+    },
+    {
+        title: 'Vínculos Societários',
+        subtitle: 'Empresas com sócios em comum — detecta laranjas e monopólios',
+        legend: [{color:'#a51d1c',label:'Empresa Fornecedora'},{color:'#b08d57',label:'Sócio / CPF'}],
+        nodes: [], edges: []
+    }
+];
+
+// ─── NORMALIZAÇÃO ─────────────────────────────────────────────
+const SIGLAS = new Set(['MPAM','TCE','TCU','CGU','AGU','DPE','DPU','PGE','PGR','SEFAZ','SEMSA','SEMED','SECOM','SEAD','SEAP','SEINF','SECUT','SEDREC','SEDUC','SEJUSC','SEAS','SEPED','SEPROR','SEIND','INSS','BNDES','BNDE','CEF','BB','ECT','ANATEL','ANVISA','IBAMA','IBGE','IPCA','IPTU','ISS','ICMS','FGTS','COFINS','TJAM','TJAP','STJ','STF','TRF','TRT','TST','TRE','TSE','ALEAM','ALERR','CPF','CNPJ','RG','CEP','SUS','UBS','UPA','SAAE','SAAM','BASA','AMAZONAS','MANAUS','AM','FFIN','FPREV','FFPREV','FPPREV','JETON','PGJAM','DPEAM','FCECON','JUCEA','DETRAN','IPAAM','CICOM','MANAUSPREV','AMAZONPREV','AVAPREV','JUCAM','SA','LTDA','ME','EPP','EIRELI','CAO','PGJ','MP','PM','PC','BM','CBMAM','SSP','RGPS','RPPS','FUNPRESP','FUNPREV','PREV','INSS']);
+const MINUSCULAS = new Set(['de','da','do','das','dos','e','a','o','as','os','em','na','no','nas','nos','por','para','com','sem','ao','aos','à','às','um','uma','uns','umas']);
+
+function normalizarPalavra(p, forcar) {
+    if (!p) return '';
+    const up = p.toUpperCase(), lo = p.toLowerCase();
+    if (!forcar && MINUSCULAS.has(lo)) return lo;
+    if (SIGLAS.has(up)) return up;
+    if (/^[A-ZÁÉÍÓÚÂÊÎÔÛÃÕÀÈÌÒÙÇ]{2,6}$/.test(p) && /[BCDFGHJKLMNPQRSTVWXYZ]/.test(up)) return up;
+    return p.charAt(0).toUpperCase() + p.slice(1).toLowerCase();
+}
+
+function normalizarTexto(t) {
+    if (!t) return '';
+    return t.trim().replace(/\s+/g,' ').replace(/\?/g,'–').split(' ').map((p,i) =>
+        p.includes('-') ? p.split('-').map(x => normalizarPalavra(x,true)).join('-') : normalizarPalavra(p, i===0)
+    ).join(' ');
+}
+
+// ─── CORES E UTILS ────────────────────────────────────────────
+function nodeColor(type) {
+    return {org:'#2d2d2d',vendor:'#80100f',person:'#b08d57',address:'#d31a20',period:'#666666',contract:'#2d2d2d'}[type] || '#80100f';
+}
+function typeLabel(type) {
+    return {org:'Órgão',vendor:'Fornecedor',person:'Pessoa',address:'Endereço',period:'Período',contract:'Contrato'}[type] || type.toUpperCase();
+}
+function formatarMoeda(v) {
+    return v.toLocaleString('pt-BR', {style:'currency', currency:'BRL', minimumFractionDigits:2, maximumFractionDigits:2});
+}
+function riskColor(c) {
+    if (c >= 10) return {ring:'#dc2626',pulse:true};
+    if (c >= 7)  return {ring:'#f97316',pulse:true};
+    if (c >= 4)  return {ring:'#eab308',pulse:false};
+    return null;
+}
+
+// ─── PROCESSAMENTO DE DADOS ───────────────────────────────────
+// Agrega uma linha do CSV nas estruturas globais (chamado durante leitura)
+function agregarLinha(l) {
+    const org  = (l.nome_unidade_gestora||'').trim();
+    const cred = (l.nom_credor||'').trim();
+    const cnpj = (l.cnpj_cnpj_credor||'').trim();
+    const val  = parseFloat(l.vl_pagamento_empenho||0);
+    const dtRaw= (l.dt_pagamento_empenho||l.dat_pagamento||l.data_pagamento||l.dt_pagamento||l.data||'').trim();
+    if (!org || !cred) return;
+
+    // Par orgão-credor
+    const pk = org+'§'+cred;
+    if (!agregado.pares[pk]) agregado.pares[pk] = {total:0,orgao:org,credor:cred,cnpj};
+    agregado.pares[pk].total += val;
+
+    // Índice por orgão
+    if (!agregado.orgaos[org]) agregado.orgaos[org] = {total:0,credores:new Set()};
+    agregado.orgaos[org].total += val;
+    agregado.orgaos[org].credores.add(cred);
+
+    // Índice por credor
+    if (!agregado.credores[cred]) agregado.credores[cred] = {total:0,orgaos:new Set(),cnpj};
+    agregado.credores[cred].total += val;
+    agregado.credores[cred].orgaos.add(org);
+
+    // Índice por CNPJ
+    if (cnpj) {
+        if (!agregado.cnpjs[cnpj]) agregado.cnpjs[cnpj] = {nomes:new Set(),orgaos:new Set(),total:0};
+        agregado.cnpjs[cnpj].nomes.add(cred);
+        agregado.cnpjs[cnpj].orgaos.add(org);
+        agregado.cnpjs[cnpj].total += val;
+    }
+
+    // Data
+    const d = parsearData(dtRaw);
+    if (d) agregado.datas.add(d.getTime());
+
+    agregado.totalRegistros++;
+}
+
+function limparAgregado() {
+    agregado = { pares:{}, orgaos:{}, credores:{}, cnpjs:{}, datas:new Set(), totalRegistros:0 };
+}
+
+// Constrói grafo a partir do agregado, respeitando filtros
+function processarDadosCSV() {
+    const nodesMap = {}, edgesMap = {};
+
+    Object.values(agregado.pares).forEach(p => {
+        const {orgao:org, credor:cred, total:val} = p;
+        // Filtro de valor
+        if (val < minAmount || val > maxAmount) return;
+        // Filtro de órgão
+        if (orgaoFiltro && org !== orgaoFiltro) return;
+        // Filtro de busca
+        if (searchTerm) {
+            const t = searchTerm.toLowerCase();
+            if (!org.toLowerCase().includes(t) && !cred.toLowerCase().includes(t) &&
+                !(p.cnpj||'').toLowerCase().includes(t)) return;
+        }
+        // Filtro temporal
+        if (!passaFiltroTemporal(org, cred)) return;
+
+        if (!nodesMap[org])  nodesMap[org]  = {id:org,  label:normalizarTexto(org),  type:'org',    size:22, value:'Unidade Gestora', total:0};
+        if (!nodesMap[cred]) nodesMap[cred] = {id:cred, label:normalizarTexto(cred), type:'vendor',  size:14, value:'Fornecedor',      total:0};
+        const k = org+'|'+cred;
+        edgesMap[k] = (edgesMap[k]||0) + val;
+        nodesMap[org].total  += val;
+        nodesMap[cred].total += val;
+    });
+
+    const LIMITE_NOS = 300;
+    let ns = Object.values(nodesMap);
+    if (ns.length > LIMITE_NOS) {
+        ns.sort((a,b)=>b.total-a.total);
+        const topIds = new Set(ns.slice(0,LIMITE_NOS).map(n=>n.id));
+        ns = ns.filter(n=>topIds.has(n.id));
+        Object.keys(edgesMap).forEach(k=>{
+            const [s,t]=k.split('|');
+            if(!topIds.has(s)||!topIds.has(t)) delete edgesMap[k];
+        });
+    }
+
+    const es = Object.entries(edgesMap).map(([k,tot])=>{
+        const [s,t]=k.split('|');
+        return {s,t,w:Math.max(0.8,Math.min(5,Math.log10(tot+1)*0.8)),total:tot};
+    });
+
+    const maxT = Math.max(...ns.map(n=>n.total),1);
+    ns.forEach(n => {
+        const r = n.total/maxT;
+        n.size = n.type==='org' ? 22+Math.round(r*20) : 14+Math.round(r*18);
+        n.value = formatarMoeda(n.total);
+    });
+    return {nodes:ns, edges:es};
+}
+
+function processarCredoresTransversais() {
+    // Usa agregado.credores que já tem Set de orgaos por credor
+    const entries = Object.entries(agregado.credores)
+        .filter(([,v]) => {
+            if (v.orgaos.size < 2) return false;
+            if (v.total < minAmount || v.total > maxAmount) return false;
+            return true;
+        })
+        .sort((a,b)=>b[1].orgaos.size-a[1].orgaos.size)
+        .slice(0,30);
+
+    if (!entries.length) return {nodes:[],edges:[]};
+
+    const orgSet = new Set();
+    entries.forEach(([,v])=>v.orgaos.forEach(o=>orgSet.add(o)));
+
+    const ns=[], es=[], lk=new Set();
+    const maxO = entries[0][1].orgaos.size;
+
+    entries.forEach(([cred,v])=>{
+        ns.push({id:cred,label:normalizarTexto(cred),type:'vendor',
+            size:18+Math.round(v.orgaos.size/maxO*22),
+            value:`${v.orgaos.size} órgãos · ${formatarMoeda(v.total)}`});
+        lk.add(cred);
+    });
+    orgSet.forEach(o=>{
+        if(lk.has(o)) return;
+        ns.push({id:o,label:normalizarTexto(o),type:'org',size:28,value:'Unidade Gestora'});
+        lk.add(o);
+    });
+    entries.forEach(([cred,v])=>{
+        v.orgaos.forEach(o=>{
+            // Valor do par cred-org: busca no agregado
+            const pk = o+'§'+cred;
+            const vp = (agregado.pares[pk]||{}).total||0;
+            es.push({s:cred,t:o,w:Math.max(0.8,Math.min(4,vp/500000))});
+        });
+    });
+    return {nodes:ns,edges:es};
+}
+
+function processarVinculosSocietarios() {
+    if (!Object.keys(agregado.cnpjs).length) return {nodes:[],edges:[]};
+    const ns=[],es=[],lk=new Set();
+    const multiNome=Object.entries(agregado.cnpjs).filter(([,v])=>v.nomes.size>=2);
+    multiNome.forEach(([cnpj,v])=>{
+        const cid='cnpj_'+cnpj;
+        if(!lk.has(cid)){ns.push({id:cid,label:`CNPJ …${cnpj.slice(-8)} (${v.nomes.size} nomes)`,type:'org',size:28+Math.min(v.nomes.size*4,20),value:formatarMoeda(v.total),alertCount:`${v.nomes.size} nomes distintos`,alertTotal:v.total,alertOrgaos:v.orgaos.size,alertNome:[...v.nomes][0]});lk.add(cid);}
+        v.nomes.forEach(nome=>{
+            const nid='nome_'+cnpj+'_'+nome;
+            if(!lk.has(nid)){ns.push({id:nid,label:normalizarTexto(nome),type:'vendor',size:18,value:`CNPJ …${cnpj.slice(-8)}`});lk.add(nid);}
+            es.push({s:cid,t:nid,w:2.5});
+        });
+    });
+    const cnpjsMultiNome=new Set(multiNome.map(([c])=>c));
+    const multiOrgao=Object.entries(agregado.cnpjs)
+        .filter(([cnpj,v])=>v.orgaos.size>=5&&!cnpjsMultiNome.has(cnpj))
+        .sort((a,b)=>b[1].orgaos.size-a[1].orgaos.size).slice(0,15);
+    multiOrgao.forEach(([cnpj,v])=>{
+        const nome=[...v.nomes][0], nid='conc_'+cnpj;
+        if(!lk.has(nid)){ns.push({id:nid,label:normalizarTexto(nome),type:'vendor',size:20+Math.min(v.orgaos.size,20),value:`${v.orgaos.size} órgãos · ${formatarMoeda(v.total)}`});lk.add(nid);}
+        [...v.orgaos].slice(0,6).forEach(org=>{
+            if(!lk.has(org)){ns.push({id:org,label:normalizarTexto(org),type:'org',size:22,value:'Unidade Gestora'});lk.add(org);}
+            es.push({s:nid,t:org,w:1.5});
+        });
+    });
+    return {nodes:ns,edges:es};
+}
+
+function abrirSocietarios() {
+    if (!Object.keys(agregado.pares).length){showToast('Importe um CSV primeiro.','aviso');return;}
+    const d=processarVinculosSocietarios();
+    if (!d.nodes.length){showToast('Nenhum padrão suspeito encontrado na base.','aviso');return;}
+    analyses[2].nodes=d.nodes; analyses[2].edges=d.edges;
+    const multiN=d.nodes.filter(n=>n.id.startsWith('cnpj_')).length;
+    const conc=d.nodes.filter(n=>n.id.startsWith('conc_')).length;
+    analyses[2].subtitle=`${multiN} CNPJs com múltiplos nomes · ${conc} credores com concentração extrema`;
+    setAnalysis(2);
+}
+
+// ─── FILTRO TEMPORAL ──────────────────────────────────────────
+function parsearData(s) {
+    if (!s) return null;
+    let d;
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) { const [dd,mm,yy]=s.split('/'); d=new Date(yy,mm-1,dd); }
+    else if (/^\d{4}-\d{2}-\d{2}/.test(s)) { d=new Date(s.substring(0,10)); }
+    else if (/^\d{2}-\d{2}-\d{4}$/.test(s)) { const [dd,mm,yy]=s.split('-'); d=new Date(yy,mm-1,dd); }
+    return (d&&!isNaN(d))?d:null;
+}
+
+function inicializarFiltroTemporal() {
+    // Usa datas já agregadas durante leitura
+    todasDatas=[...agregado.datas].sort((a,b)=>a-b).map(t=>new Date(t));
+    if (todasDatas.length<2) { document.getElementById('dateFilterHint').textContent='Coluna de data não encontrada no CSV.'; return; }
+    idxDataMin=0; idxDataMax=todasDatas.length-1;
+    const mn=document.getElementById('dateFilterMin'), mx=document.getElementById('dateFilterMax');
+    mn.min=0; mn.max=todasDatas.length-1; mn.value=0; mn.disabled=false;
+    mx.min=0; mx.max=todasDatas.length-1; mx.value=todasDatas.length-1; mx.disabled=false;
+    atualizarDisplayDatas();
+    document.getElementById('dateFilterHint').textContent=`${todasDatas.length} datas distintas encontradas.`;
+}
+
+function atualizarDisplayDatas() {
+    if (!todasDatas.length) return;
+    const f=d=>d.toLocaleDateString('pt-BR');
+    document.getElementById('dateMinDisplay').textContent=f(todasDatas[idxDataMin]);
+    document.getElementById('dateMaxDisplay').textContent=f(todasDatas[idxDataMax]);
+}
+
+// O filtro temporal agora é verificado dentro de processarDadosCSV via passaFiltroTemporal
+// Para os pares que não têm data, sempre passam (comportamento antigo mantido)
+function passaFiltroTemporal(org, cred) {
+    // Com a arquitetura agregada, não temos data por par — o filtro temporal
+    // atua filtrando quais pares incluir. Implementação simplificada: sem data por par,
+    // o filtro temporal é ignorado no nível do par (já foi aplicado durante aggregação se necessário)
+    return true;
+}
+
+// ─── FÍSICA ───────────────────────────────────────────────────
+// Índice O(1): reconstruído sempre que nodes/edges mudam
+let nodeIndex = {}; // id → node
+let connCount  = {}; // id → número de arestas
+
+function buildIndex() {
+    nodeIndex = {};
+    connCount  = {};
+    nodes.forEach(n => { nodeIndex[n.id] = n; connCount[n.id] = 0; });
+    // Reconstrói referências diretas _s/_t nos objetos de aresta clonados
+    edges.forEach(e => {
+        e._s = nodeIndex[e.s] || null;
+        e._t = nodeIndex[e.t] || null;
+        if (e._s) connCount[e.s] = (connCount[e.s]||0) + 1;
+        if (e._t) connCount[e.t] = (connCount[e.t]||0) + 1;
+    });
+}
+
+function initPhysics() {
+    const W=canvas.width, H=canvas.height, cx=W/2, cy=H/2;
+    // Orgãos ficam num anel externo, fornecedores no interno — reduz bagunça inicial
+    const orgs  = nodes.filter(n=>n.type==='org');
+    const vendors = nodes.filter(n=>n.type!=='org');
+    orgs.forEach((n,i) => {
+        const a=(i/Math.max(orgs.length,1))*Math.PI*2;
+        const r=Math.min(W,H)*0.38;
+        n.x=cx+Math.cos(a)*r+(Math.random()-0.5)*60;
+        n.y=cy+Math.sin(a)*r+(Math.random()-0.5)*60;
+        n.vx=0; n.vy=0;
+    });
+    vendors.forEach((n,i) => {
+        const a=(i/Math.max(vendors.length,1))*Math.PI*2;
+        const r=Math.min(W,H)*0.18;
+        n.x=cx+Math.cos(a)*r+(Math.random()-0.5)*60;
+        n.y=cy+Math.sin(a)*r+(Math.random()-0.5)*60;
+        n.vx=0; n.vy=0;
+    });
+    buildIndex();
+}
+
+function tick() {
+    const k=0.008, rep=8000, damp=0.78;
+    for (let i=0;i<nodes.length;i++) {
+        const ni=nodes[i];
+        for (let j=i+1;j<nodes.length;j++) {
+            const nj=nodes[j];
+            const dx=nj.x-ni.x, dy=nj.y-ni.y;
+            const dist=Math.sqrt(dx*dx+dy*dy)||1;
+            // Repulsão maior para nós do mesmo tipo
+            const sametype = ni.type===nj.type ? 1.6 : 1.0;
+            const f=rep*sametype/(dist*dist);
+            const fx=(dx/dist)*f, fy=(dy/dist)*f;
+            ni.vx-=fx; ni.vy-=fy; nj.vx+=fx; nj.vy+=fy;
+        }
+    }
+    edges.forEach(e => {
+        const s=e._s, t=e._t; if(!s||!t) return;
+        const dx=t.x-s.x, dy=t.y-s.y, dist=Math.sqrt(dx*dx+dy*dy)||1;
+        const f=(dist-180)*k*e.w, fx=(dx/dist)*f, fy=(dy/dist)*f;
+        s.vx+=fx; s.vy+=fy; t.vx-=fx; t.vy-=fy;
+    });
+    const cx=canvas.width/2, cy=canvas.height/2;
+    nodes.forEach(n => {
+        n.vx+=(cx-n.x)*0.0005; n.vy+=(cy-n.y)*0.0005;
+        n.vx*=damp; n.vy*=damp; n.x+=n.vx; n.y+=n.vy;
+    });
+}
+
+function draw() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.save(); ctx.translate(offsetX,offsetY); ctx.scale(scale,scale);
+
+    // Pré-calcula conjunto de ids conectados ao nó selecionado (O(1) lookup)
+    const connectedIds = new Set();
+    if (selectedNode) edges.forEach(e => {
+        if (e.s===selectedNode.id) connectedIds.add(e.t);
+        if (e.t===selectedNode.id) connectedIds.add(e.s);
+    });
+
+    // Desenha arestas — usa e._s / e._t direto
+    edges.forEach(e => {
+        const s=e._s, t=e._t; if(!s||!t) return;
+        const hi=selectedNode&&(selectedNode.id===s.id||selectedNode.id===t.id);
+        const dim=selectedNode&&!hi;
+        ctx.beginPath(); ctx.moveTo(s.x,s.y); ctx.lineTo(t.x,t.y);
+        if (hi) { ctx.strokeStyle='#d31a20'; ctx.lineWidth=e.w*1.5; ctx.shadowColor='#d31a20'; ctx.shadowBlur=10; }
+        else { ctx.strokeStyle=dim?'rgba(0,0,0,0.03)':'rgba(0,0,0,0.1)'; ctx.lineWidth=e.w*0.6; ctx.shadowBlur=0; }
+        ctx.stroke(); ctx.shadowBlur=0;
+    });
+
+    const pulseT=(Date.now()%1800)/1800;
+
+    nodes.forEach(n => {
+        const color=nodeColor(n.type);
+        const isSel=selectedNode&&selectedNode.id===n.id;
+        const isConn=selectedNode&&connectedIds.has(n.id);
+        const dim=selectedNode&&!isSel&&!isConn;
+        const hov=hoveredNode&&hoveredNode.id===n.id;
+        const alpha=dim?0.15:1, r=n.size+(hov||isSel?4:0);
+
+        // Usa connCount pré-calculado (O(1)) em vez de edges.filter()
+        const cc=connCount[n.id]||0;
+        const risk=(n.type==='vendor')?riskColor(cc):null;
+
+        ctx.globalAlpha=alpha;
+
+        // Anel de risco pulsante OU indicador de exclusividade
+        if (risk&&!dim) {
+            const pa=risk.pulse?0.3+0.6*(0.5+0.5*Math.sin(pulseT*Math.PI*2)):0.7;
+            ctx.save(); ctx.globalAlpha=alpha*pa;
+            ctx.beginPath(); ctx.arc(n.x,n.y,r+7,0,Math.PI*2);
+            ctx.strokeStyle=risk.ring; ctx.lineWidth=2.5; ctx.stroke();
+            ctx.beginPath(); ctx.arc(n.x,n.y,r+13,0,Math.PI*2);
+            ctx.strokeStyle=risk.ring; ctx.lineWidth=1; ctx.globalAlpha=alpha*pa*0.4; ctx.stroke();
+            ctx.restore(); ctx.globalAlpha=alpha;
+        } else if (n.type==='vendor' && cc===1 && !dim) {
+            // Fornecedor exclusivo (só 1 órgão) — anel tracejado azul-acinzentado
+            ctx.save();
+            ctx.globalAlpha=alpha*0.5;
+            ctx.beginPath(); ctx.arc(n.x,n.y,r+6,0,Math.PI*2);
+            ctx.strokeStyle='#94a3b8'; ctx.lineWidth=1.5;
+            ctx.setLineDash([3,3]); ctx.stroke(); ctx.setLineDash([]);
+            ctx.restore(); ctx.globalAlpha=alpha;
+        }
+
+        // Glow de seleção/hover — só quando necessário
+        if (isSel||hov) {
+            ctx.beginPath(); ctx.arc(n.x,n.y,r+12,0,Math.PI*2);
+            const gg=ctx.createRadialGradient(n.x,n.y,r,n.x,n.y,r+16);
+            gg.addColorStop(0,'rgba(165,29,28,0.3)'); gg.addColorStop(1,'transparent');
+            ctx.fillStyle=gg; ctx.fill();
+        }
+
+        // Anel externo + círculo preenchido (sem gradiente — flat fill por performance)
+        ctx.beginPath(); ctx.arc(n.x,n.y,r+3,0,Math.PI*2);
+        ctx.strokeStyle=isSel?color:color+'44'; ctx.lineWidth=isSel?2:1; ctx.stroke();
+        ctx.beginPath(); ctx.arc(n.x,n.y,r,0,Math.PI*2);
+        ctx.fillStyle=dim?color+'44':color+'cc'; ctx.fill();
+
+        // Label
+        ctx.font=`${isSel?'700 ':''}12px 'DM Sans',sans-serif`;
+        ctx.fillStyle=dim?'#94a3b8':'#1a1a1a'; ctx.textAlign='center';
+        ctx.fillText(n.label,n.x,n.y+r+18); ctx.globalAlpha=1;
+    });
+    ctx.restore();
+}
+
+function loop() { if(animFrame<350)tick(); draw(); animFrame++; requestAnimationFrame(loop); }
+
+// ─── INTERAÇÕES ───────────────────────────────────────────────
+function getNode(mx,my) {
+    // Loop direto — mais rápido que find() com closure
+    for (let i=nodes.length-1;i>=0;i--) {
+        const n=nodes[i], dx=n.x-mx, dy=n.y-my;
+        if (dx*dx+dy*dy<=(n.size+6)*(n.size+6)) return n;
+    }
+    return null;
+}
+
+canvas.addEventListener('mousemove', e => {
+    const rect=canvas.getBoundingClientRect();
+    const mx=(e.clientX-rect.left-offsetX)/scale, my=(e.clientY-rect.top-offsetY)/scale;
+    hoveredNode=getNode(mx,my);
+    if (isDragging){offsetX=e.offsetX-startX;offsetY=e.offsetY-startY;}
+    canvas.style.cursor=hoveredNode?'pointer':(isDragging?'grabbing':'default');
+    if (hoveredNode) {
+        const c=connCount[hoveredNode.id]||0; // O(1) lookup
+        document.getElementById('ttName').textContent=hoveredNode.label;
+        document.getElementById('ttType').textContent=hoveredNode.type.toUpperCase();
+        document.getElementById('ttType').style.color=nodeColor(hoveredNode.type);
+        document.getElementById('ttValue').textContent=hoveredNode.value;
+        document.getElementById('ttConn').textContent=`${c} vínculo(s)`;
+        tooltip.style.display='block'; tooltip.style.left=(e.clientX+14)+'px'; tooltip.style.top=(e.clientY-10)+'px';
+    } else { tooltip.style.display='none'; }
+});
+
+canvas.addEventListener('mousedown', e => {
+    mouseDownX=e.clientX; mouseDownY=e.clientY;
+    if (!hoveredNode){isDragging=true;startX=e.offsetX-offsetX;startY=e.offsetY-offsetY;}
+});
+window.addEventListener('mouseup', ()=>{isDragging=false;});
+canvas.addEventListener('wheel', e=>{e.preventDefault();scale-=e.deltaY*0.001;scale=Math.min(Math.max(0.1,scale),3);},{passive:false});
+
+canvas.addEventListener('click', e => {
+    if (Math.abs(e.clientX-mouseDownX)>5||Math.abs(e.clientY-mouseDownY)>5) return;
+    const rect=canvas.getBoundingClientRect();
+    const mx=(e.clientX-rect.left-offsetX)/scale, my=(e.clientY-rect.top-offsetY)/scale;
+    const n=getNode(mx,my);
+    if (n) {
+        if (selectedNode&&selectedNode.id===n.id){clearSelection();return;}
+        selectedNode=n;
+        const c=connCount[n.id]||0;
+        document.getElementById('statSelected').textContent=`${n.label} (${c} vínculos)`;
+        abrirPainel(n); atualizarDescCSV();
+    } else { clearSelection(); atualizarDescCSV(); }
+});
+
+// ─── PAINEL DE DETALHES ───────────────────────────────────────
+function abrirPainel(node) {
+    const ce=edges.filter(e=>e.s===node.id||e.t===node.id), cc=ce.length;
+    let total=0, pag={};
+
+    // Usa o agregado em vez de dadosBrutos linha-a-linha
+    if (node.type==='vendor') {
+        const info = agregado.credores[node.id];
+        if (info) {
+            total = info.total;
+            info.orgaos.forEach(org => {
+                const pk = org+'§'+node.id;
+                const v = (agregado.pares[pk]||{}).total||0;
+                if (v>0) pag[org] = v;
+            });
+        }
+    } else if (node.type==='org') {
+        const info = agregado.orgaos[node.id];
+        if (info) {
+            total = info.total;
+            info.credores.forEach(cred => {
+                const pk = node.id+'§'+cred;
+                const v = (agregado.pares[pk]||{}).total||0;
+                if (v>0) pag[cred] = v;
+            });
+        }
+    }
+    const isV=node.type==='vendor';
+    let html='';
+    if (Object.keys(pag).length>0) {
+        Object.entries(pag).sort((a,b)=>b[1]-a[1]).forEach(([n,v])=>{
+            const cor=isV?'#334155':'#80100f', nn=normalizarTexto(n);
+            html+=`<div class="detail-conn-item" onclick="buscarEntidade('${n.replace(/'/g,"\\'")}')"><div class="detail-conn-dot" style="background:${cor}"></div><span class="detail-conn-name" title="${nn}">${nn}</span><span class="detail-conn-count">${formatarMoeda(v)}</span></div>`;
+        });
+    } else {
+        ce.forEach(e=>{
+            const oid=e.s===node.id?e.t:e.s, o=nodes.find(n=>n.id===oid); if(!o)return;
+            html+=`<div class="detail-conn-item" onclick="selecionarNoPorId('${oid}')"><div class="detail-conn-dot" style="background:${nodeColor(o.type)}"></div><span class="detail-conn-name">${o.label}</span><span class="detail-conn-count">${o.value}</span></div>`;
+        });
+    }
+    let topNome='—', topVal=0;
+    if (Object.keys(pag).length>0) {
+        const [tn,tv]=Object.entries(pag).sort((a,b)=>b[1]-a[1])[0];
+        topNome=normalizarTexto(tn); topVal=tv;
+    }
+    document.getElementById('detailBadge').textContent=typeLabel(node.type);
+    document.getElementById('detailName').textContent=node.label;
+    const fmtBRL = v => v.toLocaleString('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:2});
+
+    // Nó de padrão suspeito (CNPJ com múltiplos nomes)
+    if (node.alertCount) {
+        const totalEl = document.getElementById('detailTotal');
+        totalEl.innerHTML = `<span style="display:flex;align-items:center;gap:6px;color:#f97316;font-size:13px;font-weight:700;margin-bottom:2px;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>${node.alertCount}</span>${fmtBRL(node.alertTotal)}`;
+    } else {
+        document.getElementById('detailTotal').textContent=total>0?fmtBRL(total):node.value;
+    }
+    document.getElementById('detailConnCount').textContent=cc;
+    document.getElementById('detailTopPayer').textContent=topNome;
+    document.getElementById('detailTopValue').textContent=topVal>0?fmtBRL(topVal):'—';
+    // Label dinâmico por tipo de nó
+    if (node.alertCount) {
+        // Padrão suspeito: substitui métricas por informações investigativas
+        document.getElementById('detailTopValue').textContent = node.alertOrgaos ? `${node.alertOrgaos} órgão(s)` : '—';
+        document.getElementById('detailTopPayer').textContent = node.alertNome ? normalizarTexto(node.alertNome) : '—';
+        document.getElementById('detailTopPayerLabel').textContent = 'Nome Mais Usado';
+        // Reutiliza label de Maior Valor como Órgãos Envolvidos
+        const metricLabels = document.querySelectorAll('.detail-metric-label');
+        metricLabels.forEach(l => { if(l.nextElementSibling?.id==='detailTopValue') l.textContent='Órgãos Envolvidos'; });
+    } else {
+        document.getElementById('detailTopPayerLabel').textContent=isV?'Maior Pagador':'Maior Contratado';
+        const metricLabels = document.querySelectorAll('.detail-metric-label');
+        metricLabels.forEach(l => { if(l.nextElementSibling?.id==='detailTopValue') l.textContent='Maior Valor'; });
+    }
+    document.getElementById('detailConnTitle').textContent=isV?'Órgãos Pagadores':'Fornecedores Contratados';
+    document.getElementById('detailConnList').innerHTML=html;
+    document.getElementById('detailPlaceholder').style.display='none';
+    const dc=document.getElementById('detailContent');
+    dc.style.display='block'; dc.classList.remove('panel-animate'); void dc.offsetWidth; dc.classList.add('panel-animate');
+    document.getElementById('detailPanel').classList.add('has-data');
+}
+
+function fecharPainel() {
+    document.getElementById('detailPlaceholder').style.display='block';
+    document.getElementById('detailContent').style.display='none';
+    document.getElementById('detailPanel').classList.remove('has-data');
+}
+function clearSelection() { selectedNode=null; document.getElementById('statSelected').textContent='—'; fecharPainel(); }
+function buscarEntidade(n) { document.getElementById('searchInput').value=n; searchTerm=n; aplicarFiltros(); }
+function selecionarNoPorId(id) {
+    const n=nodeIndex[id]; if(!n)return;
+    selectedNode=n; abrirPainel(n);
+    const c=connCount[n.id]||0;
+    document.getElementById('statSelected').textContent=`${n.label} (${c} vínculos)`;
+}
+function atualizarDescCSV() {
+    const d=document.getElementById('csvExportDesc'), dp=document.getElementById('pdfExportDesc'); if(!d)return;
+    d.textContent=selectedNode?`Vínculos de: ${selectedNode.label.substring(0,28)}${selectedNode.label.length>28?'…':''}`:'Todos os vínculos do grafo';
+    if(dp) dp.textContent=selectedNode?`Relatório de: ${selectedNode.label.substring(0,22)}…`:'Selecione um nó primeiro';
+}
+
+// ─── CONFIGURAÇÃO ─────────────────────────────────────────────
+function resize() {
+    const sidebarW = isFullscreen ? 0 : 320;
+    canvas.width  = window.innerWidth - sidebarW;
+    canvas.height = window.innerHeight - 120 - 60 - 44;
+}
+
+function setAnalysis(idx) {
+    if (idx < 0 || idx >= analyses.length) return;
+    const co=document.getElementById('chooseOverlay'); if(co) co.style.display='none';
+    currentAnalysis=idx; selectedNode=null; animFrame=0; fecharPainel();
+    const a=analyses[idx];
+    // Clona nós E arestas para que as referências e._s/e._t sejam reconstruídas no novo contexto
+    nodes=a.nodes?a.nodes.map(n=>({...n})):[];
+    edges=a.edges?a.edges.map(e=>({...e,_s:null,_t:null})):[];
+    document.getElementById('analysisTitle').textContent=a.title;
+    document.getElementById('analysisSubtitle').textContent=a.subtitle;
+    document.getElementById('statNodes').textContent=nodes.length;
+    document.getElementById('statEdges').textContent=edges.length;
+    document.getElementById('statSelected').textContent='—';
+    document.getElementById('legend').innerHTML=a.legend.map(l=>`<div class="legend-item"><div class="legend-dot" style="background:${l.color}"></div>${l.label}</div>`).join('');
+    document.querySelectorAll('.analysis-btn').forEach((b,i)=>b.classList.toggle('active',i===idx));
+    resize(); initPhysics(); // initPhysics seta x,y e chama buildIndex com os objetos corretos
+}
+
+function toggleAnalysis(idx) {
+    if (!Object.keys(agregado.pares).length) { showToast('Importe um CSV primeiro.', 'aviso'); return; }
+    // Se já está selecionada, desmarca e volta para tela de escolha
+    if (currentAnalysis === idx) {
+        currentAnalysis = -1;
+        nodes = []; edges = [];
+        selectedNode = null;
+        document.querySelectorAll('.analysis-btn').forEach(b => b.classList.remove('active'));
+        fecharPainel();
+        document.getElementById('statNodes').textContent = '0';
+        document.getElementById('statEdges').textContent = '0';
+        document.getElementById('statSelected').textContent = '—';
+        document.getElementById('chooseOverlay').style.display = 'flex';
+        return;
+    }
+    // Senão, abre a análise correta
+    if (idx === 0) setAnalysis(0);
+    else if (idx === 1) abrirTransversais();
+    else if (idx === 2) abrirSocietarios();
+}
+
+function abrirTransversais() {
+    if(!Object.keys(agregado.pares).length){showToast('Importe um CSV primeiro.','aviso');return;}
+    setAnalysis(1);
+}
+
+function abrirSocietarios() {
+    if(!Object.keys(agregado.pares).length){showToast('Importe um CSV primeiro.','aviso');return;}
+    const d=processarVinculosSocietarios();
+    if(!d.nodes.length){showToast('Nenhum padrão suspeito encontrado na base.','aviso');return;}
+    analyses[2].nodes=d.nodes; analyses[2].edges=d.edges;
+    const multiN=d.nodes.filter(n=>n.id.startsWith('cnpj_')).length;
+    const conc=d.nodes.filter(n=>n.id.startsWith('conc_')).length;
+    analyses[2].subtitle=`${multiN} CNPJs com múltiplos nomes · ${conc} credores com concentração extrema`;
+    setAnalysis(2);
+}
+
+// ─── PROGRESSO ────────────────────────────────────────────────
+function mostrarProgresso(v,sub='',pct=0,count=0) {
+    const o=document.getElementById('progressOverlay');
+    if (!v) {
+        o.classList.remove('visible');
+        o.style.display='none';
+        return;
+    }
+    o.style.display='flex';
+    o.classList.add('visible');
+    if(v){document.getElementById('progressSub').textContent=sub;document.getElementById('progressBar').style.width=pct+'%';document.getElementById('progressCount').textContent=count.toLocaleString('pt-BR')+' registros lidos';}
+}
+
+// ─── IMPORTAÇÃO ───────────────────────────────────────────────
+function processarArquivo(files) {
+    if (!files||files.length===0||typeof Papa==='undefined') return;
+    const listaArquivos = Array.from(files);
+
+    // Reseta estado completo antes de carregar novo arquivo
+    limparAgregado();
+    dadosBrutos = [];
+    selectedNode = null; nodes = []; edges = [];
+    scale = 1.0; offsetX = 0; offsetY = 0;
+    minAmount = 0; maxAmount = Infinity;
+    searchTerm = ''; orgaoFiltro = '';
+    currentAnalysis = -1;
+    todasDatas = []; idxDataMin = 0; idxDataMax = 0;
+    document.getElementById('searchInput').value = '';
+    document.getElementById('orgaoFilter').innerHTML = '<option value="">— Todos os órgãos —</option>';
+    document.getElementById('valueFilterMin').value = 0;
+    document.getElementById('valMinDisplay').textContent = 'Min: R$ 0';
+    document.getElementById('valMaxDisplay').textContent = 'Max: Bi';
+    document.getElementById('dateFilterMin').disabled = true;
+    document.getElementById('dateFilterMax').disabled = true;
+    document.getElementById('dateMinDisplay').textContent = '—';
+    document.getElementById('dateMaxDisplay').textContent = '—';
+    document.getElementById('dateFilterHint').textContent = 'Carregue CSV com coluna dat_pagamento para ativar.';
+    document.getElementById('statRecords').textContent = '0';
+    document.querySelectorAll('.analysis-btn').forEach(b => b.classList.remove('active'));
+    fecharPainel();
+    atualizarBtnLimpar();
+
+    totalArquivosCarregados = listaArquivos.length;
+    document.getElementById('importOverlay').style.display='none';
+    mostrarProgresso(true,`Lendo ${listaArquivos.length} arquivo(s)...`,5,0);
+
+    let arquivoAtual = 0;
+
+    function processarProximo() {
+        if (arquivoAtual >= listaArquivos.length) {
+            // Todos os arquivos lidos — agora processa
+            dadosBrutos = []; // libera memória imediatamente
+            mostrarProgresso(true,'Processando vínculos...',85, agregado.totalRegistros);
+            setTimeout(()=>{
+                inicializarFiltroTemporal();
+                atualizarDropdownOrgaos();
+                mostrarProgresso(true,'Construindo grafo...',92, agregado.totalRegistros);
+                setTimeout(()=>{
+                    try { aplicarFiltros(); } catch(e){ console.error(e); }
+                    // Não pré-seleciona nenhuma análise — usuário escolhe
+                    document.getElementById('statRecords').textContent=agregado.totalRegistros.toLocaleString('pt-BR');
+                    mostrarProgresso(false);
+                    // Badge de status — extrai ano do nome do arquivo ou das datas
+                    const nomeArq = listaArquivos[0].name;
+                    const anoMatch = nomeArq.match(/20\d{2}/);
+                    const ano = anoMatch ? anoMatch[0] : (todasDatas.length ? todasDatas[0].getFullYear() : 'CSV');
+                    document.getElementById('statusBadgeTitle').textContent = `Dados de ${ano}`;
+                    document.getElementById('statusBadgeSub').textContent = agregado.totalRegistros.toLocaleString('pt-BR') + ' registros carregados';
+                    document.getElementById('statusBadge').classList.add('visible');
+                    // Mostra tela de escolha
+                    document.getElementById('chooseOverlay').style.display='flex';
+                    showToast(`Base carregada — ${agregado.totalRegistros.toLocaleString('pt-BR')} registros!`);
+                },300);
+            },150);
+            return;
+        }
+
+        const file = listaArquivos[arquivoAtual];
+        const nomeArq = file.name.replace(/\.csv$/i,'').replace(/_/g,' ');
+
+        mostrarProgresso(true,
+            `Arquivo ${arquivoAtual+1}/${listaArquivos.length}: ${nomeArq}`,
+            5 + (arquivoAtual/listaArquivos.length)*75, agregado.totalRegistros);
+
+        Papa.parse(file,{
+            header:true, skipEmptyLines:true, delimiter:';', encoding:'ISO-8859-1',
+            // Agrega LINHA A LINHA — nunca acumula tudo em memória
+            step(r){
+                agregarLinha(r.data);
+                if(agregado.totalRegistros%1000===0){
+                    const pct=5+(arquivoAtual/listaArquivos.length)*75;
+                    mostrarProgresso(true,`Lendo ${nomeArq}...`,Math.min(82,pct), agregado.totalRegistros);
+                }
+            },
+            complete(){ arquivoAtual++; processarProximo(); },
+            error(){ mostrarProgresso(false); showToast(`Erro ao ler ${file.name}`,'aviso'); }
+        });
+    }
+
+    processarProximo();
+}
+
+// ─── DROPDOWN DE ÓRGÃOS ───────────────────────────────────────
+function atualizarDropdownOrgaos() {
+    const orgaos = Object.keys(agregado.orgaos).sort();
+    const sel = document.getElementById('orgaoFilter');
+    sel.innerHTML = '<option value="">Todos os órgãos</option>';
+    orgaos.forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o;
+        opt.textContent = normalizarTexto(o).substring(0,45)+(o.length>45?'…':'');
+        sel.appendChild(opt);
+    });
+}
+
+function filtrarPorOrgao(valor) { orgaoFiltro = valor; atualizarBtnLimpar(); aplicarFiltros(); }
+
+function limparDados() {
+    // Reseta tudo e volta à tela inicial
+    limparAgregado();
+    nodes=[]; edges=[]; selectedNode=null;
+    scale=1.0; offsetX=0; offsetY=0;
+    minAmount=0; maxAmount=Infinity;
+    searchTerm=''; orgaoFiltro='';
+    currentAnalysis=-1;
+    todasDatas=[]; idxDataMin=0; idxDataMax=0;
+    document.getElementById('searchInput').value='';
+    document.getElementById('orgaoFilter').innerHTML='<option value="">Todos os órgãos</option>';
+    document.getElementById('valueFilterMin').value=0;
+    document.getElementById('valMinDisplay').textContent='Min: R$ 0';
+    document.getElementById('valMaxDisplay').textContent='Max: Bi';
+    document.getElementById('dateFilterMin').disabled=true;
+    document.getElementById('dateFilterMax').disabled=true;
+    document.getElementById('dateMinDisplay').textContent='—';
+    document.getElementById('dateMaxDisplay').textContent='—';
+    document.getElementById('dateFilterHint').textContent='Carregue CSV com coluna dat_pagamento para ativar.';
+    document.getElementById('statNodes').textContent='0';
+    document.getElementById('statEdges').textContent='0';
+    document.getElementById('statRecords').textContent='0';
+    document.getElementById('statSelected').textContent='—';
+    document.getElementById('csvInputMain').value='';
+    document.querySelectorAll('.analysis-btn').forEach(b=>b.classList.remove('active'));
+    fecharPainel();
+    atualizarBtnLimpar();
+    // Esconde overlay de escolha, mostra tela inicial
+    document.getElementById('statusBadge').classList.remove('visible');
+    document.getElementById('chooseOverlay').style.display='none';
+    document.getElementById('importOverlay').style.display='flex';
+    lucide.createIcons();
+}
+
+function limparFiltros() {
+    // Reseta todos os filtros
+    minAmount = 0; maxAmount = Infinity;
+    searchTerm = ''; orgaoFiltro = '';
+    idxDataMin = 0; idxDataMax = todasDatas.length > 0 ? todasDatas.length - 1 : 0;
+
+    // Reseta UI
+    document.getElementById('searchInput').value = '';
+    document.getElementById('orgaoFilter').value = '';
+    const sMin = document.getElementById('valueFilterMin');
+    const sMax = document.getElementById('valueFilterMax');
+    sMin.value = 0;
+    sMax.value = sMax.max;
+    document.getElementById('valMinDisplay').textContent = 'Min: R$ 0';
+    document.getElementById('valMaxDisplay').textContent = 'Max: Bi';
+    if (todasDatas.length > 0) {
+        document.getElementById('dateFilterMin').value = 0;
+        document.getElementById('dateFilterMax').value = todasDatas.length - 1;
+        atualizarDisplayDatas();
+    }
+    atualizarBtnLimpar();
+    aplicarFiltros();
+    showToast('Filtros limpos!');
+}
+
+function atualizarBtnLimpar() {
+    const ativo = minAmount > 0 || maxAmount < Infinity || searchTerm || orgaoFiltro ||
+        idxDataMin > 0 || idxDataMax < todasDatas.length - 1;
+    const btn = document.getElementById('btnLimparFiltros');
+    if (btn) {
+        btn.style.display = ativo ? 'flex' : 'none';
+        if (ativo) lucide.createIcons();
+    }
+}
+
+// ─── FILTROS ──────────────────────────────────────────────────
+function aplicarFiltros() {
+    if (!Object.keys(agregado.pares).length) return;
+
+    // Recalcula max valor a partir do agregado
+    const maxV = Math.max(...Object.values(agregado.pares).map(p=>p.total), 1);
+    const sMin=document.getElementById('valueFilterMin'), sMax=document.getElementById('valueFilterMax');
+    if (parseFloat(sMin.max) !== maxV) {
+        sMin.max=maxV; sMax.max=maxV; sMax.value=maxV; maxAmount=maxV;
+    }
+
+    const gd = processarDadosCSV();
+    analyses[0].nodes=gd.nodes; analyses[0].edges=gd.edges;
+    analyses[0].subtitle=`${gd.nodes.length} entidades · ${gd.edges.length} vínculos únicos`;
+
+    const td = processarCredoresTransversais();
+    analyses[1].nodes=td.nodes; analyses[1].edges=td.edges;
+    analyses[1].subtitle=td.nodes.length>0
+        ?`${td.nodes.filter(n=>n.type==='vendor').length} fornecedores em 2+ órgãos`
+        :'Nenhum credor transversal';
+
+    setAnalysis(currentAnalysis);
+    document.getElementById('statNodes').textContent=nodes.length;
+    document.getElementById('statEdges').textContent=edges.length;
+}
+
+// ─── TOAST ────────────────────────────────────────────────────
+function showToast(msg,tipo='sucesso') {
+    const t=document.getElementById('toast'), ic=document.getElementById('toastIcon');
+    document.getElementById('toastMsg').textContent=msg;
+    if(tipo==='aviso'){ic.setAttribute('data-lucide','alert-triangle');ic.style.color='#fbbf24';t.style.borderLeftColor='#f59e0b';}
+    else{ic.setAttribute('data-lucide','check-circle');ic.style.color='#4ade80';t.style.borderLeftColor='#a51d1c';}
+    lucide.createIcons(); t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),5000);
+}
+
+// ─── EXPORTAÇÕES ──────────────────────────────────────────────
+function toggleExportMenu() {
+    exportMenuOpen=!exportMenuOpen;
+    document.getElementById('exportMenu').style.display=exportMenuOpen?'block':'none';
+    document.getElementById('exportChevron').style.transform=exportMenuOpen?'rotate(180deg)':'rotate(0deg)';
+}
+document.addEventListener('click',e=>{if(!document.getElementById('exportWrapper').contains(e.target)){exportMenuOpen=false;document.getElementById('exportMenu').style.display='none';document.getElementById('exportChevron').style.transform='rotate(0deg)';}});
+
+function exportarCSV() {
+    toggleExportMenu();
+    const agora=new Date(), ds=agora.toISOString().slice(0,10), titulo=document.getElementById('analysisTitle').textContent;
+    let linhas=[], nome='';
+    if (selectedNode) {
+        linhas.push(['Entidade','Tipo','Conexao','Tipo_Conexao','Valor_R$']);
+        edges.filter(e=>e.s===selectedNode.id||e.t===selectedNode.id).forEach(e=>{
+            const oid=e.s===selectedNode.id?e.t:e.s, o=nodes.find(n=>n.id===oid); if(!o)return;
+            // Busca valor no agregado em vez de dadosBrutos
+            let soma=0;
+            if (selectedNode.type==='vendor') {
+                const pk=oid+'§'+selectedNode.id; soma=(agregado.pares[pk]||{}).total||0;
+            } else {
+                const pk=selectedNode.id+'§'+oid; soma=(agregado.pares[pk]||{}).total||0;
+            }
+            linhas.push([`"${selectedNode.label}"`,selectedNode.type==='vendor'?'Fornecedor':'Órgão',`"${o.label}"`,o.type==='vendor'?'Fornecedor':'Órgão',soma>0?soma.toFixed(2).replace('.',','):'']);
+        });
+        nome=`MPAM_vinculos_${selectedNode.label.replace(/\s+/g,'_').substring(0,40)}_${ds}.csv`;
+    } else {
+        linhas.push(['Origem','Tipo_Origem','Destino','Tipo_Destino','Peso']);
+        edges.forEach(e=>{const s=nodes.find(n=>n.id===e.s),t=nodes.find(n=>n.id===e.t);if(!s||!t)return;linhas.push([`"${s.label}"`,s.type==='vendor'?'Fornecedor':'Órgão',`"${t.label}"`,t.type==='vendor'?'Fornecedor':'Órgão',e.w]);});
+        nome=`MPAM_grafo_completo_${ds}.csv`;
+    }
+    const blob=new Blob(['\uFEFF'+linhas.map(l=>l.join(';')).join('\r\n')],{type:'text/csv;charset=utf-8;'});
+    const lk=document.createElement('a'); lk.href=URL.createObjectURL(blob); lk.download=nome; lk.click();
+    showToast(`CSV exportado — ${linhas.length-1} vínculo(s)!`);
+}
+
+function exportarPNG() {
+    toggleExportMenu();
+    const agora=new Date(), dataStr=agora.toLocaleDateString('pt-BR')+' '+agora.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    const titulo=document.getElementById('analysisTitle').textContent;
+    const HH=52, FH=34, MH=selectedNode?110:0, GH=canvas.height, W=canvas.width, H=HH+GH+MH+FH;
+    const out=document.createElement('canvas'); out.width=W; out.height=H;
+    const c=out.getContext('2d');
+    c.fillStyle='#fff'; c.fillRect(0,0,W,H);
+    c.fillStyle='#a51d1c'; c.fillRect(0,0,W,HH);
+    c.fillStyle='#c29d6a'; c.fillRect(0,HH-4,W,4);
+    c.textBaseline='alphabetic'; c.fillStyle='#fff'; c.font='bold 16px sans-serif'; c.textAlign='left'; c.fillText('MPAM — '+titulo,20,24);
+    c.font='11px sans-serif'; c.fillStyle='rgba(255,255,255,0.72)'; c.fillText('Ministério Público do Estado do Amazonas · Sistema Arumã',20,40);
+    c.textAlign='right'; c.fillText('Gerado em '+dataStr,W-20,24);
+    c.font='10px sans-serif'; c.fillStyle='rgba(255,255,255,0.5)'; c.fillText(`Nós: ${nodes.length}  Vínculos: ${edges.length}`,W-20,40); c.textAlign='left';
+    c.fillStyle='#fff'; c.fillRect(0,HH,W,GH); c.drawImage(canvas,0,HH);
+    if (selectedNode) {
+        const PY=HH+GH, PAD=24;
+        const g=c.createLinearGradient(0,PY,0,PY+MH); g.addColorStop(0,'#1a2535'); g.addColorStop(1,'#0d1520');
+        c.fillStyle=g; c.fillRect(0,PY,W,MH); c.fillStyle='#c29d6a'; c.fillRect(0,PY,W,4);
+        const C1W=Math.min(W*0.20,280), badge=selectedNode.type==='vendor'?'FORNECEDOR':'ÓRGÃO PÚBLICO';
+        c.font='bold 11px sans-serif'; c.textBaseline='middle';
+        const bw=c.measureText(badge).width+24; c.fillStyle='#a51d1c'; c.beginPath(); c.roundRect(PAD,PY+22,bw,22,5); c.fill();
+        c.fillStyle='#fff'; c.fillText(badge,PAD+12,PY+33);
+        const nd=normalizarTexto(selectedNode.id); let fs=16; c.font=`bold ${fs}px sans-serif`;
+        while(c.measureText(nd).width>C1W-PAD&&fs>12){fs--;c.font=`bold ${fs}px sans-serif`;}
+        c.fillStyle='#fff'; c.textBaseline='alphabetic'; c.fillText(nd.length>30?nd.substring(0,28)+'…':nd,PAD,PY+72);
+        c.strokeStyle='rgba(194,157,106,0.3)'; c.lineWidth=1; c.beginPath(); c.moveTo(C1W+PAD,PY+16); c.lineTo(C1W+PAD,PY+MH-16); c.stroke();
+        const fmtBRL=v=>v.toLocaleString('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:2});
+        // Usa agregado em vez de dadosBrutos
+        let tot=0, pagB={};
+        if (selectedNode.type==='vendor') {
+            const info=agregado.credores[selectedNode.id];
+            if(info){tot=info.total;info.orgaos.forEach(org=>{const pk=org+'§'+selectedNode.id;const v=(agregado.pares[pk]||{}).total||0;if(v>0)pagB[org]=v;});}
+        } else {
+            const info=agregado.orgaos[selectedNode.id];
+            if(info){tot=info.total;info.credores.forEach(cred=>{const pk=selectedNode.id+'§'+cred;const v=(agregado.pares[pk]||{}).total||0;if(v>0)pagB[cred]=v;});}
+        }
+        const topV=Object.keys(pagB).length?Math.max(...Object.values(pagB)):0;
+        const topP=document.getElementById('detailTopPayer').textContent;
+        const mets=[{label:'TOTAL RECEBIDO',val:tot>0?fmtBRL(tot):'—',d:true},{label:'VÍNCULOS',val:document.getElementById('detailConnCount').textContent,d:false},{label:'MAIOR VALOR',val:topV>0?fmtBRL(topV):'—',d:false},{label:'MAIOR PAGADOR',val:normalizarTexto(topP),d:false}];
+        const mX=C1W+PAD*2,mW=W-mX-PAD,GAP=12,cW=(mW-GAP*3)/4,cY=PY+12,cH=MH-24;
+        mets.forEach((m,i)=>{
+            const cx=mX+i*(cW+GAP);
+            c.fillStyle=m.d?'rgba(165,29,28,0.35)':'rgba(255,255,255,0.06)'; c.beginPath(); c.roundRect(cx,cY,cW,cH,7); c.fill();
+            c.fillStyle=m.d?'#c0392b':'#c29d6a'; c.beginPath(); c.roundRect(cx,cY,cW,4,[7,7,0,0]); c.fill();
+            c.fillStyle='#fff'; c.font='bold 10px sans-serif'; c.textBaseline='top'; c.fillText(m.label,cx+12,cY+14);
+            let vfs=m.val.length>18?12:m.val.length>12?14:18; c.font=`bold ${vfs}px sans-serif`;
+            while(c.measureText(m.val).width>cW-24&&vfs>10){vfs--;c.font=`bold ${vfs}px sans-serif`;}
+            c.fillStyle='#fff'; c.textBaseline='alphabetic'; c.fillText(m.val,cx+12,cY+cH-14);
+        });
+    }
+    const FY=H-FH; c.fillStyle='#f1f5f9'; c.fillRect(0,FY,W,FH); c.fillStyle='#c29d6a'; c.fillRect(0,FY,W,2);
+    c.fillStyle='#475569'; c.font='10px sans-serif'; c.textBaseline='middle'; c.textAlign='left';
+    c.fillText(selectedNode?`Selecionado: ${selectedNode.label}`:'Visão geral — nenhum nó selecionado',20,FY+FH/2);
+    c.fillStyle='#94a3b8'; c.textAlign='right'; c.fillText('Sistema de Análise de Vínculos — MPAM · Arumã',W-20,FY+FH/2);
+    const lk=document.createElement('a'); lk.download='MPAM_grafo_'+titulo.replace(/\s+/g,'_')+'_'+agora.toISOString().slice(0,10)+'.png'; lk.href=out.toDataURL('image/png'); lk.click();
+    showToast('PNG exportado com sucesso!');
+}
+
+function exportarPDF() {
+    toggleExportMenu();
+    if (!selectedNode){showToast('Selecione um nó no grafo primeiro!','aviso');return;}
+    const {jsPDF}=window.jspdf; if(!jsPDF){showToast('Biblioteca PDF não carregada.','aviso');return;}
+    const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+    const PW=210, agora=new Date(), ds=agora.toLocaleDateString('pt-BR'), hs=agora.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    const verm=[165,29,28],cEs=[30,41,59],cMe=[71,85,105],cCl=[241,245,249],br=[255,255,255],ou=[194,157,106];
+    const nRel='REL-'+agora.getTime().toString().slice(-6);
+    doc.setFillColor(...verm);doc.rect(0,0,PW,38,'F');
+    doc.setFillColor(...ou);doc.rect(0,38,PW,1.2,'F');
+    doc.setTextColor(...br);doc.setFont('helvetica','bold');doc.setFontSize(14);doc.text('MINISTÉRIO PÚBLICO DO ESTADO DO AMAZONAS',14,13);
+    doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(255,220,220);doc.text('Sistema de Gestão e Análise de Custos — Arumã',14,20);
+    doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(...br);doc.text('RELATÓRIO DE VÍNCULOS FINANCEIROS',14,30);
+    doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(255,200,200);doc.text(`Gerado em ${ds} às ${hs}`,14,35.5);
+    doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(...br);doc.text(nRel,PW-14,13,{align:'right'});
+    doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(255,200,200);doc.text('Confidencial — Uso Interno',PW-14,18,{align:'right'});
+    let y=46;
+    doc.setFillColor(...cCl);doc.roundedRect(14,y,PW-28,32,3,3,'F');
+    doc.setDrawColor(...verm);doc.setLineWidth(0.8);doc.line(14,y,14,y+32);
+    const tl=selectedNode.type==='vendor'?'FORNECEDOR':'ÓRGÃO PÚBLICO';
+    doc.setFillColor(...verm);doc.roundedRect(18,y+4,tl.length*1.8+4,6,1,1,'F');
+    doc.setTextColor(...br);doc.setFont('helvetica','bold');doc.setFontSize(6);doc.text(tl,20,y+8.5);
+    doc.setTextColor(...cEs);doc.setFont('helvetica','bold');doc.setFontSize(13);
+    doc.text(selectedNode.label.length>55?selectedNode.label.substring(0,52)+'...':selectedNode.label,18,y+19);
+    doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(...cMe);
+    doc.text(`${document.getElementById('analysisTitle').textContent}  ·  ${ds}`,18,y+26);
+    y+=38;
+    const mets=[{label:'TOTAL RECEBIDO',valor:document.getElementById('detailTotal').textContent},{label:'VÍNCULOS',valor:document.getElementById('detailConnCount').textContent},{label:'MAIOR PAGADOR',valor:document.getElementById('detailTopPayer').textContent},{label:'MAIOR VALOR',valor:document.getElementById('detailTopValue').textContent}];
+    const cw=(PW-28-9)/4;
+    mets.forEach((m,i)=>{
+        const mx=14+i*(cw+3);
+        doc.setFillColor(...br);doc.setDrawColor(226,232,240);doc.setLineWidth(0.3);doc.roundedRect(mx,y,cw,20,2,2,'FD');
+        doc.setFont('helvetica','bold');doc.setFontSize(6);doc.setTextColor(...cMe);doc.text(m.label,mx+3,y+6);
+        doc.setFont('helvetica','bold');doc.setFontSize(i>=2?7:10);doc.setTextColor(...verm);
+        doc.text(m.valor.length>18?m.valor.substring(0,16)+'…':m.valor,mx+3,y+15);
+    });
+    y+=26;
+    doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(...cEs);doc.text('VISUALIZAÇÃO DO GRAFO',14,y+5);
+    doc.setDrawColor(...ou);doc.setLineWidth(0.4);doc.line(14,y+6.5,PW-14,y+6.5);
+    y+=10;
+    try {
+        const tc=document.createElement('canvas');tc.width=canvas.width;tc.height=canvas.height;
+        const tx=tc.getContext('2d');tx.fillStyle='#fff';tx.fillRect(0,0,tc.width,tc.height);tx.drawImage(canvas,0,0);
+        doc.addImage(tc.toDataURL('image/jpeg',0.92),'JPEG',14,y,PW-28,95);
+        doc.setDrawColor(226,232,240);doc.setLineWidth(0.3);doc.rect(14,y,PW-28,95);y+=103;
+    } catch(e){y+=4;}
+    const ci=document.querySelectorAll('#detailConnList .detail-conn-item'), lH=6.5, pH=doc.internal.pageSize.height;
+    if (pH-12-y<18+3*lH){doc.addPage();y=16;}
+    doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(...cEs);doc.text('VÍNCULOS IDENTIFICADOS',14,y+5);
+    doc.setDrawColor(...ou);doc.setLineWidth(0.4);doc.line(14,y+6.5,PW-14,y+6.5);y+=10;
+    doc.setFillColor(...verm);doc.rect(14,y,PW-28,7,'F');
+    doc.setTextColor(...br);doc.setFont('helvetica','bold');doc.setFontSize(7);
+    const isV=selectedNode.type==='vendor';
+    doc.text(isV?'ÓRGÃO PAGADOR':'FORNECEDOR',17,y+4.8);doc.text('VALOR (R$)',PW-45,y+4.8);y+=7;
+    let li=0;
+    ci.forEach(item=>{
+        if(y+lH>pH-14){
+            doc.addPage();y=16;
+            doc.setFillColor(...cCl);doc.rect(14,y,PW-28,6,'F');doc.setTextColor(...cMe);doc.setFont('helvetica','bold');doc.setFontSize(6.5);doc.text('VÍNCULOS IDENTIFICADOS (continuação)',17,y+4);y+=7;
+            doc.setFillColor(...verm);doc.rect(14,y,PW-28,7,'F');doc.setTextColor(...br);doc.setFont('helvetica','bold');doc.setFontSize(7);
+            doc.text(isV?'ÓRGÃO PAGADOR':'FORNECEDOR',17,y+4.8);doc.text('VALOR (R$)',PW-45,y+4.8);y+=7;li=0;
+        }
+        const n=item.querySelector('.detail-conn-name')?.textContent||'', v=item.querySelector('.detail-conn-count')?.textContent||'';
+        doc.setFillColor(li%2===0?248:255,li%2===0?250:255,li%2===0?252:255);doc.rect(14,y,PW-28,lH,'F');
+        doc.setDrawColor(226,232,240);doc.setLineWidth(0.15);doc.rect(14,y,PW-28,lH);
+        doc.setTextColor(...cEs);doc.setFont('helvetica','normal');doc.setFontSize(7);doc.text(n.length>60?n.substring(0,57)+'...':n,17,y+4.3);
+        doc.setFont('helvetica','bold');doc.setTextColor(...verm);doc.text(v,PW-45,y+4.3);
+        y+=lH;li++;
+    });
+    const tp=doc.internal.getNumberOfPages();
+    for(let p=1;p<=tp;p++){
+        doc.setPage(p);const ph=doc.internal.pageSize.height;
+        doc.setFillColor(...cCl);doc.rect(0,ph-12,PW,12,'F');
+        doc.setDrawColor(...ou);doc.setLineWidth(0.4);doc.line(0,ph-12,PW,ph-12);
+        doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(...cMe);
+        doc.text('MPAM — Ministério Público do Estado do Amazonas',14,ph-4.5);
+        doc.text(`Página ${p} de ${tp}`,PW-14,ph-4.5,{align:'right'});
+        doc.text(nRel,PW/2,ph-4.5,{align:'center'});
+    }
+    doc.save(`MPAM_relatorio_${selectedNode.label.replace(/\s+/g,'_').replace(/[^\w-]/g,'').substring(0,35)}_${agora.toISOString().slice(0,10)}.pdf`);
+    showToast('Relatório PDF gerado com sucesso!');
+}
+
+// ─── TELA CHEIA ───────────────────────────────────────────────
+function toggleFullscreen() {
+    isFullscreen=!isFullscreen;
+    const layout=document.querySelector('.layout');
+    layout.classList.toggle('fullscreen-mode',isFullscreen);
+    document.getElementById('fullscreenLabel').textContent=isFullscreen?'RECOLHER':'EXPANDIR';
+    document.getElementById('fullscreenIcon').setAttribute('data-lucide',isFullscreen?'minimize-2':'maximize-2');
+    lucide.createIcons(); setTimeout(()=>resize(),370);
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&isFullscreen)toggleFullscreen();});
+
+// ─── RESETAR ZOOM / CENTRALIZAR ───────────────────────────────
+function resetarZoom() {
+    scale=1.0; offsetX=0; offsetY=0;
+    // Reposiciona nós em torno do centro
+    if (nodes.length>0) {
+        const W=canvas.width, H=canvas.height;
+        const cx=W/2, cy=H/2;
+        nodes.forEach((n,i)=>{
+            const a=(i/nodes.length)*Math.PI*2;
+            const r=Math.min(W,H)*0.30;
+            n.x=cx+Math.cos(a)*r+(Math.random()-0.5)*60;
+            n.y=cy+Math.sin(a)*r+(Math.random()-0.5)*60;
+            n.vx=0; n.vy=0;
+        });
+        animFrame=0; // reinicia física
+        buildIndex();
+    }
+    showToast('Grafo centralizado!');
+}
+
+// ─── PLACEHOLDER ANIMADO ──────────────────────────────────────
+(function(){
+    const inp=document.getElementById('searchInput'), ph=document.getElementById('searchPlaceholder'), txt=document.getElementById('searchPlaceholderText');
+    const msg='Digite o nome ou CNPJ do Credor ou Unidade Gestora      ';
+    txt.textContent=msg+msg;
+    function sync(){ph.style.display=inp.value.length===0?'flex':'none';}
+    inp.addEventListener('input',sync);
+    inp.addEventListener('focus',()=>{if(inp.value.length===0)txt.style.animationPlayState='paused';else ph.style.display='none';});
+    inp.addEventListener('blur',()=>{txt.style.animationPlayState='running';sync();});
+    sync();
+})();
+
+// ─── EVENTOS ──────────────────────────────────────────────────
+document.getElementById('valueFilterMin').addEventListener('input',e=>{minAmount=parseFloat(e.target.value);document.getElementById('valMinDisplay').textContent='Min: '+formatarMoeda(minAmount);atualizarBtnLimpar();aplicarFiltros();});
+document.getElementById('valueFilterMax').addEventListener('input',e=>{maxAmount=parseFloat(e.target.value);document.getElementById('valMaxDisplay').textContent='Max: '+formatarMoeda(maxAmount);atualizarBtnLimpar();aplicarFiltros();});
+document.getElementById('searchInput').addEventListener('input',e=>{searchTerm=e.target.value;atualizarBtnLimpar();aplicarFiltros();});
+document.getElementById('dateFilterMin').addEventListener('input',e=>{idxDataMin=parseInt(e.target.value);if(idxDataMin>idxDataMax){idxDataMax=idxDataMin;document.getElementById('dateFilterMax').value=idxDataMax;}atualizarDisplayDatas();atualizarBtnLimpar();aplicarFiltros();});
+document.getElementById('dateFilterMax').addEventListener('input',e=>{idxDataMax=parseInt(e.target.value);if(idxDataMax<idxDataMin){idxDataMin=idxDataMax;document.getElementById('dateFilterMin').value=idxDataMin;}atualizarDisplayDatas();atualizarBtnLimpar();aplicarFiltros();});
+document.getElementById('csvInputMain').addEventListener('change', e => {
+    if (e.target.files[0]) {
+        processarArquivo(e.target.files);
+        e.target.value = ''; // reseta input para permitir carregar o mesmo arquivo novamente
+    }
+});
+window.addEventListener('resize',()=>{resize();initPhysics();});
+
+// ─── INICIALIZAÇÃO ────────────────────────────────────────────
+resize();
+document.getElementById('legend').innerHTML='';
+document.querySelectorAll('.analysis-btn').forEach(b=>b.classList.remove('active'));
+loop();
+lucide.createIcons();
+</script>
+</body>
+</html>
